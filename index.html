@@ -235,6 +235,14 @@
     gap: 4px;
   }
 
+  .player-card.player-alt-a {
+    background-color: #2979ff;
+  }
+
+  .player-card.player-alt-b {
+    background-color: #1b5ea8;
+  }
+
   .player-card:active {
     cursor: grabbing;
   }
@@ -250,15 +258,6 @@
     flex: 1;
     text-align: left;
     pointer-events: none;
-  }
-
-  /* Alternate bench-list name colors, both readable on the blue player cards. */
-  #players-list .player-name-text.name-color-a {
-    color: #ffffff;
-  }
-
-  #players-list .player-name-text.name-color-b {
-    color: #000000;
   }
 
   .edit-btn {
@@ -731,9 +730,9 @@
     });
     sortedBenchIds.forEach(function(playerId, index) {
       const playerCard = document.createElement('div');
-      playerCard.className = 'player-card';
+      playerCard.className = 'player-card player-alt-' + (index % 2 === 0 ? 'a' : 'b');
       const nameSpan = document.createElement('span');
-      nameSpan.className = 'player-name-text name-color-' + (index % 2 === 0 ? 'a' : 'b');
+      nameSpan.className = 'player-name-text';
       nameSpan.textContent = state.playerNames[playerId];
       const editBtn = document.createElement('button');
       editBtn.className = 'edit-btn';
