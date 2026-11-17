@@ -71,7 +71,7 @@
   }
   function getDefaultState() {
     const players = {};
-    for (let i=1;i<=TOTAL_PLAYERS;i++) players[i] = PRESET_NAMES[i-1] || ('p'+i);
+    for (let i=1;i<=TOTAL_PLAYERS;i++) players[i] = PRESET_NAMES[i-1] || ('z'+i);
     return {
       courts: setCourtNames(COURT_IDS.map(function(id) { return { id:id, name:'', onCourt:false, slots:[null,null,null,null] }; })),
       benchIds: Array.from({length:TOTAL_PLAYERS},function(_,i){return i+1;}),
