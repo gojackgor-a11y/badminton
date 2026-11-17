@@ -21,9 +21,27 @@
     color: #ffffff;
     display: flex;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
     gap: 10px;
     overflow: hidden;
+  }
+
+  /* Custom Visible Scrollbars for Android, iOS, Windows, and Mac */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.45);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.7);
   }
 
   /* Left Side: 7 Courts in a 4x2 Grid occupying majority of screen */
@@ -34,6 +52,9 @@
     grid-template-rows: repeat(2, 1fr);
     gap: 8px;
     height: 100%;
+    min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.45) rgba(255, 255, 255, 0.08);
   }
 
   .court {
@@ -46,6 +67,7 @@
     justify-content: space-between;
     transition: background-color 0.2s, border-color 0.2s;
     min-width: 0;
+    min-height: 0;
   }
 
   .court.locked {
@@ -90,6 +112,7 @@
     gap: 6px;
     flex: 1;
     margin: 8px 0;
+    min-height: 0;
   }
 
   .slot {
@@ -103,6 +126,7 @@
     color: rgba(255, 255, 255, 0.5);
     overflow: hidden;
     min-width: 0;
+    min-height: 0;
     transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
   }
 
@@ -151,8 +175,8 @@
   /* Right Side: 28 Players List */
   #players-sidebar {
     flex: 1;
-    min-width: 125px;
-    max-width: 200px;
+    min-width: 130px;
+    max-width: 210px;
     background-color: #1e1e1e;
     border: 2px solid transparent;
     border-radius: 8px;
@@ -160,6 +184,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     transition: border-color 0.15s, background-color 0.15s;
   }
 
@@ -175,15 +200,21 @@
     margin-bottom: 6px;
     padding-bottom: 6px;
     border-bottom: 1px solid #333;
+    flex-shrink: 0;
   }
 
   #players-list {
     flex: 1;
-    overflow-y: auto;
+    min-height: 0;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     display: flex;
     flex-direction: column;
     gap: 5px;
-    padding-right: 2px;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.45) rgba(255, 255, 255, 0.08);
   }
 
   /* Player Rectangle Icon */
@@ -195,13 +226,13 @@
     border-radius: 5px;
     padding: 7px 8px;
     width: 100%;
+    flex-shrink: 0;
     cursor: grab;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 4px;
-    touch-action: none;
   }
 
   .player-card:active {
@@ -240,6 +271,7 @@
     font-size: 0.9rem;
     background-color: #00b0ff;
     padding: 4px;
+    touch-action: none;
   }
 
   .slot .player-name-text {
@@ -251,7 +283,7 @@
     cursor: not-allowed;
   }
 
-  /* Floating ghost element for iPad/iPhone touch drag */
+  /* Floating ghost element for mobile touch drag */
   .touch-ghost {
     position: fixed;
     pointer-events: none;
@@ -279,12 +311,15 @@
     background-color: #616161;
   }
 
-  /* Responsive adjustment for smaller or portrait screens */
+  /* Responsive adjustment for smaller Android/iOS phones and portrait mode */
   @media (max-width: 900px) {
     #courts-container {
       grid-template-columns: repeat(2, 1fr);
-      grid-template-rows: repeat(4, 1fr);
-      overflow-y: auto;
+      grid-template-rows: repeat(4, minmax(150px, 1fr));
+      overflow-y: scroll;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      padding-right: 4px;
     }
   }
 
@@ -293,7 +328,7 @@
     .court { padding: 6px; }
     .court-title { font-size: 0.9rem; }
     button { padding: 6px 3px; font-size: 0.7rem; }
-    #players-sidebar { min-width: 100px; padding: 6px; }
+    #players-sidebar { min-width: 110px; padding: 6px; }
     .player-card { padding: 6px; font-size: 0.8rem; }
   }
 </style>
@@ -309,14 +344,13 @@
   </div>
 
 <script>
-  const STORAGE_KEY = 'badminton_court_manager_v4';
+  const STORAGE_KEY = 'badminton_court_manager_v5';
   const COURT_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
   const TOTAL_PLAYERS = 28;
   const PRESET_NAMES = [
     'Jack', 'Julie', 'Peter', 'William', 'Alan',
     'Barry', 'Michael', 'Jamie', 'Brian', 'Quan',
-    'Kevin', 'Frank', 'Kelly', 'Darwin', 'Wenan',
-    'Emily', 'Lily', 'Bill', 'James', 'Luke'
+    'Kevin', 'Frank', 'Emily', 'Lily', 'Bill', 'James', 'Luke'
   ];
 
   let dragPayload = null;
@@ -386,36 +420,31 @@
     if (fromType === 'bench') {
       const displacedPlayerId = targetCourt.slots[targetSlotIndex];
       targetCourt.slots[targetSlotIndex] = playerId;
-      state.benchIds = state.benchIds.filter(function(id) { return id !== playerId; });
-      if (displacedPlayerId !== null) {
-        state.benchIds.push(displacedPlayerId);
-        state.benchIds.sort(function(a, b) { return a - b; });
-      }
-    } else if (fromType === 'court') {
-      if (srcCourtId === targetCourtId && srcSlotIndex === targetSlotIndex) return;
-      const srcCourt = state.courts.find(function(c) { return c.id === srcCourtId; });
-      if (!srcCourt || srcCourt.onCourt) return;
-
-      const targetPlayerId = targetCourt.slots[targetSlotIndex];
-      targetCourt.slots[targetSlotIndex] = playerId;
-      srcCourt.slots[srcSlotIndex] = targetPlayerId;
-    }
-
-    dragPayload = null;
-    saveState();
-    render();
-  }
-
-  function handleDropOnBench() {
-    if (!dragPayload) return;
-    if (dragPayload.fromType === 'court') {
-      releasePlayerFromCourt(dragPayload.courtId, dragPayload.slotIndex);
-    }
-    dragPayload = null;
-  }
-
-  function setupPlayerInteractions(cardEl, payload, onDoubleTap) {
-
+state.benchIds = state.benchIds.filter(function(id) { return id !== playerId; });
+if (displacedPlayerId !== null) {
+state.benchIds.push(displacedPlayerId);
+state.benchIds.sort(function(a, b) { return a - b; });
+}
+} else if (fromType === 'court') {
+if (srcCourtId === targetCourtId && srcSlotIndex === targetSlotIndex) return;
+const srcCourt = state.courts.find(function(c) { return c.id === srcCourtId; });
+if (!srcCourt || srcCourt.onCourt) return;
+const targetPlayerId = targetCourt.slots[targetSlotIndex];
+targetCourt.slots[targetSlotIndex] = playerId;
+srcCourt.slots[srcSlotIndex] = targetPlayerId;
+}
+dragPayload = null;
+saveState();
+render();
+}
+function handleDropOnBench() {
+if (!dragPayload) return;
+if (dragPayload.fromType === 'court') {
+releasePlayerFromCourt(dragPayload.courtId, dragPayload.slotIndex);
+}
+dragPayload = null;
+}
+function setupPlayerInteractions(cardEl, payload, onDoubleTap) {
 // 1. Desktop HTML5 Drag & Drop
 cardEl.setAttribute('draggable', 'true');
 cardEl.addEventListener('dragstart', function(e) {
@@ -437,11 +466,12 @@ if (e.target.classList.contains('edit-btn')) return;
 e.preventDefault();
 onDoubleTap();
 });
-// 3. Touch Support (Double-Tap + Touch Drag-and-Drop for iPad/iPhone)
+// 3. Touch Support (Double-Tap + Touch Drag-and-Drop for Android, iPad, iPhone)
 let lastTap = 0;
 let touchStartX = 0;
 let touchStartY = 0;
 let isTouchDragging = false;
+let isScrollingList = false;
 let ghostEl = null;
 cardEl.addEventListener('touchstart', function(e) {
 if (e.target.classList.contains('edit-btn')) return;
@@ -449,13 +479,19 @@ const touch = e.touches[0];
 touchStartX = touch.clientX;
 touchStartY = touch.clientY;
 isTouchDragging = false;
+isScrollingList = false;
 }, { passive: true });
 cardEl.addEventListener('touchmove', function(e) {
-if (e.target.classList.contains('edit-btn')) return;
+if (e.target.classList.contains('edit-btn') || isScrollingList) return;
 const touch = e.touches[0];
 const dx = Math.abs(touch.clientX - touchStartX);
 const dy = Math.abs(touch.clientY - touchStartY);
-if (!isTouchDragging && (dx > 10 || dy > 10)) {
+// If starting from bench and moving primarily vertically, allow Android/iOS native list scrolling
+if (!isTouchDragging && payload.fromType === 'bench' && dy > 10 && dy > dx) {
+isScrollingList = true;
+return;
+}
+if (!isTouchDragging && (dx > 10 || (payload.fromType === 'court' && dy > 10))) {
 isTouchDragging = true;
 dragPayload = payload;
 cardEl.classList.add('dragging');
@@ -504,6 +540,10 @@ handleDropOnBench();
 }
 dragPayload = null;
 isTouchDragging = false;
+return;
+}
+if (isScrollingList) {
+isScrollingList = false;
 return;
 }
 const currentTime = Date.now();
@@ -570,7 +610,6 @@ function releaseAllFromCourt(courtId) {
 const courtIndex = state.courts.findIndex(function(c) { return c.id === courtId; });
 if (courtIndex === -1) return;
 const court = state.courts[courtIndex];
-// Release all players back to bench
 court.slots.forEach(function(playerId, index) {
 if (playerId !== null) {
 state.benchIds.push(playerId);
