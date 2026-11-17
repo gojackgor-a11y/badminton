@@ -366,7 +366,7 @@
   function getDefaultState() {
     const players = {};
     for (let i = 1; i <= TOTAL_PLAYERS; i++) {
-      players[i] = PRESET_NAMES[i - 1] || ('p' + i);
+      players[i] = PRESET_NAMES[i - 1] || ('z' + i);
     }
     return {
       courts: COURT_IDS.map(function(id) {
