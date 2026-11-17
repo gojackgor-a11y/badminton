@@ -363,20 +363,30 @@
 
   let dragPayload = null;
 
+  function setCourtNames(courts) {
+    return courts.map(function(court, index) {
+      return {
+        ...court,
+        id: court.id || COURT_IDS[index],
+        name: index < 4 ? 'Court' : 'Queue'
+      };
+    });
+  }
+
   function getDefaultState() {
     const players = {};
     for (let i = 1; i <= TOTAL_PLAYERS; i++) {
       players[i] = PRESET_NAMES[i - 1] || ('z' + i);
     }
     return {
-      courts: COURT_IDS.map(function(id) {
+      courts: setCourtNames(COURT_IDS.map(function(id) {
         return {
           id: id,
           name: 'Court ' + id,
           onCourt: false,
           slots: [null, null, null, null]
         };
-      }),
+      })),
       benchIds: Array.from({ length: TOTAL_PLAYERS }, function(_, i) { return i + 1; }),
       playerNames: players
     };
@@ -388,7 +398,10 @@
       if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed.courts) && parsed.courts.length === 7 && Array.isArray(parsed.benchIds) && parsed.playerNames) {
-          return parsed;
+          return {
+            ...parsed,
+            courts: setCourtNames(parsed.courts)
+          };
         }
       }
     } catch (e) {
