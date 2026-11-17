@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Badminton Court Manager (7 Courts)</title>
+<style>
+  * {
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: manipulation;
+  }
+  body {
+    margin: 0;
+    padding: 10px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #121212;
+    color: #ffffff;
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+    gap: 10px;
+    overflow: hidden;
+  }
+
+  /* Left Side: 7 Courts in a 4x2 Grid occupying majority of screen */
+  #courts-container {
+    flex: 3.5;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 8px;
+    height: 100%;
+  }
+
+  .court {
+    background-color: #1b5e20;
+    border: 2px solid #ffffff;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: background-color 0.2s, border-color 0.2s;
+    min-width: 0;
+  }
+
+  .court.locked {
+    background-color: #4a1c1c;
+    border-color: #ff5252;
+  }
+
+  .court-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+    padding-bottom: 4px;
+    gap: 4px;
+  }
+
+  .court-title {
+    font-size: 1rem;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+
+  .status-badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    background-color: #2e7d32;
+    font-weight: bold;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .court.locked .status-badge {
+    background-color: #d32f2f;
+  }
+
+  /* 4 Slots per court */
+  .slots-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 6px;
+    flex: 1;
+    margin: 8px 0;
+  }
+
+  .slot {
+    background-color: rgba(255, 255, 255, 0.12);
+    border: 1.5px dashed rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    overflow: hidden;
+    min-width: 0;
+    transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
+  }
+
+  .slot.occupied {
+    border-style: solid;
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.25);
+  }
+
+  .slot.drag-over {
+    background-color: rgba(255, 235, 59, 0.35);
+    border-color: #ffeb3b;
+    border-style: solid;
+    transform: scale(1.03);
+  }
+
+  /* Court Control Buttons */
+  .court-controls {
+    display: flex;
+    gap: 6px;
+  }
+
+  button {
+    flex: 1;
+    padding: 8px 4px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    color: white;
+    white-space: nowrap;
+  }
+
+  .btn-oncourt {
+    background-color: #f57c00;
+  }
+  .btn-oncourt.active {
+    background-color: #d32f2f;
+  }
+
+  .btn-release {
+    background-color: #0288d1;
+  }
+
+  /* Right Side: 28 Players List */
+  #players-sidebar {
+    flex: 1;
+    min-width: 125px;
+    max-width: 200px;
+    background-color: #1e1e1e;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    transition: border-color 0.15s, background-color 0.15s;
+  }
+
+  #players-sidebar.drag-over {
+    border-color: #ffeb3b;
+    background-color: #2a2a1e;
+  }
+
+  #players-header {
+    font-size: 0.9rem;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 6px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #333;
+  }
+
+  #players-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    padding-right: 2px;
+  }
+
+  /* Player Rectangle Icon */
+  .player-card {
+    background-color: #2979ff;
+    color: white;
+    font-weight: bold;
+    font-size: 0.9rem;
+    border-radius: 5px;
+    padding: 7px 8px;
+    width: 100%;
+    cursor: grab;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    touch-action: none;
+  }
+
+  .player-card:active {
+    cursor: grabbing;
+  }
+
+  .player-card.dragging {
+    opacity: 0.45;
+  }
+
+  .player-name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    text-align: left;
+    pointer-events: none;
+  }
+
+  .edit-btn {
+    flex: 0 0 auto;
+    background: rgba(0, 0, 0, 0.25);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    color: #fff;
+  }
+
+  .edit-btn:hover {
+    background: rgba(0, 0, 0, 0.45);
+  }
+
+  .slot .player-card {
+    height: 100%;
+    justify-content: center;
+    font-size: 0.9rem;
+    background-color: #00b0ff;
+    padding: 4px;
+  }
+
+  .slot .player-name-text {
+    text-align: center;
+  }
+
+  .court.locked .slot .player-card {
+    background-color: #757575;
+    cursor: not-allowed;
+  }
+
+  /* Floating ghost element for iPad/iPhone touch drag */
+  .touch-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 9999;
+    background-color: #ffab00;
+    color: #000000;
+    font-weight: bold;
+    font-size: 0.95rem;
+    padding: 8px 14px;
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+  }
+
+  #btn-reset {
+    flex: 0 0 auto;
+    margin-top: 6px;
+    background-color: #424242;
+    font-size: 0.75rem;
+    padding: 7px;
+  }
+
+  #btn-reset:hover {
+    background-color: #616161;
+  }
+
+  /* Responsive adjustment for smaller or portrait screens */
+  @media (max-width: 900px) {
+    #courts-container {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(4, 1fr);
+      overflow-y: auto;
+    }
+  }
+
+  @media (max-width: 600px) {
+    body { padding: 6px; gap: 6px; }
+    .court { padding: 6px; }
+    .court-title { font-size: 0.9rem; }
+    button { padding: 6px 3px; font-size: 0.7rem; }
+    #players-sidebar { min-width: 100px; padding: 6px; }
+    .player-card { padding: 6px; font-size: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="courts-container"></div>
+
+  <div id="players-sidebar">
+    <div id="players-header">Players (<span id="bench-count">28</span>)</div>
+    <div id="players-list"></div>
+    <button id="btn-reset" onclick="resetAllData()">Reset All</button>
+  </div>
+
+<script>
+  const STORAGE_KEY = 'badminton_court_manager_v4';
+  const COURT_IDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+  const TOTAL_PLAYERS = 28;
+  const PRESET_NAMES = [
+    'Jack', 'Julie', 'Peter', 'William', 'Alan',
+    'Barry', 'Michael', 'Jamie', 'Brian', 'Quan',
+    'Kevin', 'Frank', 'Kelly', 'Darwin', 'Wenan',
+    'Emily', 'Lily', 'Bill', 'James', 'Luke'
+  ];
+
+  let dragPayload = null;
+
+  function getDefaultState() {
+    const players = {};
+    for (let i = 1; i <= TOTAL_PLAYERS; i++) {
+      players[i] = PRESET_NAMES[i - 1] || ('p' + i);
+    }
+    return {
+      courts: COURT_IDS.map(function(id) {
+        return {
+          id: id,
+          name: 'Court ' + id,
+          onCourt: false,
+          slots: [null, null, null, null]
+        };
+      }),
+      benchIds: Array.from({ length: TOTAL_PLAYERS }, function(_, i) { return i + 1; }),
+      playerNames: players
+    };
+  }
+
+  function loadState() {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && Array.isArray(parsed.courts) && parsed.courts.length === 7 && Array.isArray(parsed.benchIds) && parsed.playerNames) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load saved state:', e);
+    }
+    return getDefaultState();
+  }
+
+  let state = loadState();
+
+  function saveState() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } catch (e) {
+      console.warn('Could not save state:', e);
+    }
+  }
+
+  function resetAllData() {
+    if (confirm('Reset all 7 courts, restore court order, and reset player names to default?')) {
+      state = getDefaultState();
+      saveState();
+      render();
+    }
+  }
+
+  function handleDropOnSlot(targetCourtId, targetSlotIndex) {
+    if (!dragPayload) return;
+    const targetCourt = state.courts.find(function(c) { return c.id === targetCourtId; });
+    if (!targetCourt || targetCourt.onCourt) return;
+
+    const playerId = dragPayload.playerId;
+    const fromType = dragPayload.fromType;
+    const srcCourtId = dragPayload.courtId;
+    const srcSlotIndex = dragPayload.slotIndex;
+
+    if (fromType === 'bench') {
+      const displacedPlayerId = targetCourt.slots[targetSlotIndex];
+      targetCourt.slots[targetSlotIndex] = playerId;
+      state.benchIds = state.benchIds.filter(function(id) { return id !== playerId; });
+      if (displacedPlayerId !== null) {
+        state.benchIds.push(displacedPlayerId);
+        state.benchIds.sort(function(a, b) { return a - b; });
+      }
+    } else if (fromType === 'court') {
+      if (srcCourtId === targetCourtId && srcSlotIndex === targetSlotIndex) return;
+      const srcCourt = state.courts.find(function(c) { return c.id === srcCourtId; });
+      if (!srcCourt || srcCourt.onCourt) return;
+
+      const targetPlayerId = targetCourt.slots[targetSlotIndex];
+      targetCourt.slots[targetSlotIndex] = playerId;
+      srcCourt.slots[srcSlotIndex] = targetPlayerId;
+    }
+
+    dragPayload = null;
+    saveState();
+    render();
+  }
+
+  function handleDropOnBench() {
+    if (!dragPayload) return;
+    if (dragPayload.fromType === 'court') {
+      releasePlayerFromCourt(dragPayload.courtId, dragPayload.slotIndex);
+    }
+    dragPayload = null;
+  }
+
+  function setupPlayerInteractions(cardEl, payload, onDoubleTap) {
+
+// 1. Desktop HTML5 Drag & Drop
+cardEl.setAttribute('draggable', 'true');
+cardEl.addEventListener('dragstart', function(e) {
+dragPayload = payload;
+cardEl.classList.add('dragging');
+if (e.dataTransfer) {
+e.dataTransfer.effectAllowed = 'move';
+e.dataTransfer.setData('text/plain', String(payload.playerId));
+}
+});
+cardEl.addEventListener('dragend', function() {
+cardEl.classList.remove('dragging');
+clearDragHighlights();
+dragPayload = null;
+});
+// 2. Desktop Double-Click
+cardEl.addEventListener('dblclick', function(e) {
+if (e.target.classList.contains('edit-btn')) return;
+e.preventDefault();
+onDoubleTap();
+});
+// 3. Touch Support (Double-Tap + Touch Drag-and-Drop for iPad/iPhone)
+let lastTap = 0;
+let touchStartX = 0;
+let touchStartY = 0;
+let isTouchDragging = false;
+let ghostEl = null;
+cardEl.addEventListener('touchstart', function(e) {
+if (e.target.classList.contains('edit-btn')) return;
+const touch = e.touches[0];
+touchStartX = touch.clientX;
+touchStartY = touch.clientY;
+isTouchDragging = false;
+}, { passive: true });
+cardEl.addEventListener('touchmove', function(e) {
+if (e.target.classList.contains('edit-btn')) return;
+const touch = e.touches[0];
+const dx = Math.abs(touch.clientX - touchStartX);
+const dy = Math.abs(touch.clientY - touchStartY);
+if (!isTouchDragging && (dx > 10 || dy > 10)) {
+isTouchDragging = true;
+dragPayload = payload;
+cardEl.classList.add('dragging');
+ghostEl = document.createElement('div');
+ghostEl.className = 'touch-ghost';
+ghostEl.textContent = state.playerNames[payload.playerId];
+document.body.appendChild(ghostEl);
+}
+if (isTouchDragging && ghostEl) {
+e.preventDefault();
+ghostEl.style.left = touch.clientX + 'px';
+ghostEl.style.top = touch.clientY + 'px';
+clearDragHighlights();
+const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+if (elBelow) {
+const slotTarget = elBelow.closest('.slot');
+const benchTarget = elBelow.closest('#players-sidebar');
+if (slotTarget && !slotTarget.closest('.court.locked')) {
+slotTarget.classList.add('drag-over');
+} else if (benchTarget && payload.fromType === 'court') {
+benchTarget.classList.add('drag-over');
+}
+}
+}
+}, { passive: false });
+cardEl.addEventListener('touchend', function(e) {
+if (e.target.classList.contains('edit-btn')) return;
+if (isTouchDragging) {
+e.preventDefault();
+if (ghostEl) {
+ghostEl.remove();
+ghostEl = null;
+}
+cardEl.classList.remove('dragging');
+clearDragHighlights();
+const touch = e.changedTouches[0];
+const elBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+if (elBelow) {
+const slotTarget = elBelow.closest('.slot');
+const benchTarget = elBelow.closest('#players-sidebar');
+if (slotTarget && slotTarget.dataset.courtId) {
+handleDropOnSlot(slotTarget.dataset.courtId, parseInt(slotTarget.dataset.slotIndex, 10));
+} else if (benchTarget) {
+handleDropOnBench();
+}
+}
+dragPayload = null;
+isTouchDragging = false;
+return;
+}
+const currentTime = Date.now();
+const tapLength = currentTime - lastTap;
+if (tapLength < 350 && tapLength > 0) {
+e.preventDefault();
+onDoubleTap();
+}
+lastTap = currentTime;
+});
+}
+function clearDragHighlights() {
+document.querySelectorAll('.drag-over').forEach(function(el) {
+el.classList.remove('drag-over');
+});
+}
+function editPlayerName(playerId, e) {
+e.stopPropagation();
+const currentName = state.playerNames[playerId];
+const newName = prompt('Enter name for Player #' + playerId + ':', currentName);
+if (newName !== null && newName.trim() !== '') {
+state.playerNames[playerId] = newName.trim();
+saveState();
+render();
+}
+}
+function assignPlayerToCourt(playerId) {
+for (let i = 0; i < state.courts.length; i++) {
+const court = state.courts[i];
+if (!court.onCourt) {
+const emptySlotIndex = court.slots.indexOf(null);
+if (emptySlotIndex !== -1) {
+court.slots[emptySlotIndex] = playerId;
+state.benchIds = state.benchIds.filter(function(id) { return id !== playerId; });
+saveState();
+render();
+return;
+}
+}
+}
+alert('No available court slots!');
+}
+function releasePlayerFromCourt(courtId, slotIndex) {
+const court = state.courts.find(function(c) { return c.id === courtId; });
+if (!court || court.onCourt) return;
+const playerId = court.slots[slotIndex];
+if (playerId !== null) {
+court.slots[slotIndex] = null;
+state.benchIds.push(playerId);
+state.benchIds.sort(function(a, b) { return a - b; });
+saveState();
+render();
+}
+}
+function toggleOnCourt(courtId) {
+const court = state.courts.find(function(c) { return c.id === courtId; });
+if (court) {
+court.onCourt = !court.onCourt;
+saveState();
+render();
+}
+}
+function releaseAllFromCourt(courtId) {
+const courtIndex = state.courts.findIndex(function(c) { return c.id === courtId; });
+if (courtIndex === -1) return;
+const court = state.courts[courtIndex];
+// Release all players back to bench
+court.slots.forEach(function(playerId, index) {
+if (playerId !== null) {
+state.benchIds.push(playerId);
+court.slots[index] = null;
+}
+});
+court.onCourt = false;
+state.benchIds.sort(function(a, b) { return a - b; });
+// Move this court to the end of the courts list
+state.courts.splice(courtIndex, 1);
+state.courts.push(court);
+saveState();
+render();
+}
+const sidebarEl = document.getElementById('players-sidebar');
+sidebarEl.addEventListener('dragover', function(e) {
+if (dragPayload && dragPayload.fromType === 'court') {
+e.preventDefault();
+sidebarEl.classList.add('drag-over');
+}
+});
+sidebarEl.addEventListener('dragleave', function(e) {
+if (!sidebarEl.contains(e.relatedTarget)) {
+sidebarEl.classList.remove('drag-over');
+}
+});
+sidebarEl.addEventListener('drop', function(e) {
+e.preventDefault();
+sidebarEl.classList.remove('drag-over');
+handleDropOnBench();
+});
+function render() {
+const courtsContainer = document.getElementById('courts-container');
+const playersList = document.getElementById('players-list');
+document.getElementById('bench-count').textContent = state.benchIds.length;
+courtsContainer.innerHTML = '';
+state.courts.forEach(function(court) {
+const courtEl = document.createElement('div');
+courtEl.className = 'court' + (court.onCourt ? ' locked' : '');
+const header = document.createElement('div');
+header.className = 'court-header';
+header.innerHTML =
+'' + court.name + ' ' +
+'' + (court.onCourt ? 'Locked' : 'Available') + '';
+courtEl.appendChild(header);
+const slotsGrid = document.createElement('div');
+slotsGrid.className = 'slots-grid';
+court.slots.forEach(function(playerId, idx) {
+const slotEl = document.createElement('div');
+slotEl.className = 'slot' + (playerId !== null ? ' occupied' : '');
+slotEl.dataset.courtId = court.id;
+slotEl.dataset.slotIndex = idx;
+if (!court.onCourt) {
+slotEl.addEventListener('dragover', function(e) {
+if (dragPayload) {
+e.preventDefault();
+slotEl.classList.add('drag-over');
+}
+});
+slotEl.addEventListener('dragleave', function() {
+slotEl.classList.remove('drag-over');
+});
+slotEl.addEventListener('drop', function(e) {
+e.preventDefault();
+slotEl.classList.remove('drag-over');
+handleDropOnSlot(court.id, idx);
+});
+}
+if (playerId !== null) {
+const playerCard = document.createElement('div');
+playerCard.className = 'player-card';
+const nameSpan = document.createElement('span');
+nameSpan.className = 'player-name-text';
+nameSpan.textContent = state.playerNames[playerId];
+playerCard.appendChild(nameSpan);
+if (!court.onCourt) {
+setupPlayerInteractions(
+playerCard,
+{ playerId: playerId, fromType: 'court', courtId: court.id, slotIndex: idx },
+function() { releasePlayerFromCourt(court.id, idx); }
+);
+}
+slotEl.appendChild(playerCard);
+} else {
+slotEl.textContent = 'Empty';
+}
+slotsGrid.appendChild(slotEl);
+});
+courtEl.appendChild(slotsGrid);
+const controls = document.createElement('div');
+controls.className = 'court-controls';
+const btnOnCourt = document.createElement('button');
+btnOnCourt.className = 'btn-oncourt' + (court.onCourt ? ' active' : '');
+btnOnCourt.textContent = court.onCourt ? 'In Progress' : 'On Court';
+btnOnCourt.onclick = function() { toggleOnCourt(court.id); };
+const btnRelease = document.createElement('button');
+btnRelease.className = 'btn-release';
+btnRelease.textContent = 'Release All';
+btnRelease.onclick = function() { releaseAllFromCourt(court.id); };
+controls.appendChild(btnOnCourt);
+controls.appendChild(btnRelease);
+courtEl.appendChild(controls);
+courtsContainer.appendChild(courtEl);
+});
+playersList.innerHTML = '';
+state.benchIds.forEach(function(playerId) {
+const playerCard = document.createElement('div');
+playerCard.className = 'player-card';
+const nameSpan = document.createElement('span');
+nameSpan.className = 'player-name-text';
+nameSpan.textContent = state.playerNames[playerId];
+const editBtn = document.createElement('button');
+editBtn.className = 'edit-btn';
+editBtn.textContent = '✎';
+editBtn.title = 'Rename player';
+editBtn.onclick = function(e) { editPlayerName(playerId, e); };
+playerCard.appendChild(nameSpan);
+playerCard.appendChild(editBtn);
+setupPlayerInteractions(
+playerCard,
+{ playerId: playerId, fromType: 'bench' },
+function() { assignPlayerToCourt(playerId); }
+);
+playersList.appendChild(playerCard);
+});
+}
+render();
+
+</script>
+</body>
+</html>
