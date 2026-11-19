@@ -47,7 +47,12 @@
   .touch-ghost { position: fixed; pointer-events: none; z-index: 9999; background-color: #ffab00; color: #000; font-weight: bold; font-size: .95rem; padding: 8px 14px; border-radius: 6px; box-shadow: 0 6px 16px rgba(0,0,0,.5); transform: translate(-50%,-50%); white-space: nowrap; }
   #btn-reset { flex: 0 0 auto; margin-top: 6px; background-color: #424242; font-size: .75rem; padding: 7px; }
   #btn-reset:hover { background-color: #616161; }
-  @media (max-width: 900px) { #courts-container { grid-template-columns: repeat(2,1fr); grid-template-rows: repeat(4,minmax(150px,1fr)); overflow-y: scroll; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding-right: 4px; } }
+  #match-history { flex: 0 0 auto; width: 100%; max-height: 22vh; overflow-y: auto; padding: 8px 12px; background: #1e1e1e; border-radius: 8px; }
+  #match-history h2 { font-size: .95rem; margin: 0 0 6px; }
+  #match-history-list { margin: 0; padding-left: 22px; font-size: .8rem; }
+  #match-history-list li { padding: 3px 0; }
+  .match-times { color: #bbb; }
+  @media (max-width: 900px) { body { flex-direction: column; height: auto; min-height: 100vh; min-height: 100dvh; overflow: auto; } #courts-container { flex: none; grid-template-columns: repeat(2,1fr); grid-template-rows: repeat(4,minmax(150px,1fr)); overflow-y: scroll; -webkit-overflow-scrolling: touch; touch-action: pan-y; padding-right: 4px; } #players-sidebar { flex: none; width: 100%; max-width: none; height: 340px; } #match-history { max-height: 30vh; } }
   @media (max-width: 600px) { body { padding: 6px; gap: 6px; } .court { padding: 6px; } .court-title { font-size: .9rem; } button { padding: 6px 3px; font-size: .7rem; } #players-sidebar { min-width: 110px; padding: 6px; } .player-card { padding: 6px; font-size: .8rem; } }
 </style>
 </head>
@@ -58,6 +63,10 @@
     <div id="players-list"></div>
     <button id="btn-reset" onclick="resetAllData()">Reset All</button>
   </div>
+  <section id="match-history" aria-labelledby="match-history-heading">
+    <h2 id="match-history-heading">Match History</h2>
+    <ol id="match-history-list"></ol>
+  </section>
 <script>
   const STORAGE_KEY = 'badminton_court_manager_v5';
   const COURT_IDS = ['A','B','C','D','E','F','G'];
@@ -73,9 +82,10 @@
     const players = {};
     for (let i=1;i<=TOTAL_PLAYERS;i++) players[i] = PRESET_NAMES[i-1] || ('z'+i);
     return {
-      courts: setCourtNames(COURT_IDS.map(function(id) { return { id:id, name:'', onCourt:false, slots:[null,null,null,null] }; })),
+      courts: setCourtNames(COURT_IDS.map(function(id) { return { id:id, name:'', onCourt:false, slots:[null,null,null,null], activeMatch:null }; })),
       benchIds: Array.from({length:TOTAL_PLAYERS},function(_,i){return i+1;}),
-      playerNames: players
+      playerNames: players,
+      matchHistory: []
     };
   }
   function loadState() {
@@ -84,7 +94,8 @@
       if(saved) {
         const parsed=JSON.parse(saved);
         if(parsed && Array.isArray(parsed.courts) && parsed.courts.length===7 && Array.isArray(parsed.benchIds) && parsed.playerNames) {
-          parsed.courts.forEach(function(court,index){ if(!court.id) court.id=COURT_IDS[index]; });
+          parsed.courts.forEach(function(court,index){ if(!court.id) court.id=COURT_IDS[index]; if(!Array.isArray(court.slots)) court.slots=[null,null,null,null]; if(!Object.prototype.hasOwnProperty.call(court,'activeMatch')) court.activeMatch=null; });
+          if(!Array.isArray(parsed.matchHistory)) parsed.matchHistory=[];
           setCourtNames(parsed.courts);
           return parsed;
         }
@@ -95,7 +106,7 @@
   let state=loadState();
   function saveState() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); } catch(e) { console.warn('Could not save state:',e); } }
   function resetAllData() {
-    if(confirm('Reset all 7 courts, restore court order, and reset player names to default?')) { state=getDefaultState(); saveState(); render(); }
+    if(confirm('Reset all 7 courts, restore court order, reset player names, and clear match history?')) { state=getDefaultState(); saveState(); render(); }
   }
   function handleDropOnSlot(targetCourtId,targetSlotIndex) {
     if(!dragPayload) return;
@@ -147,10 +158,12 @@
   function editPlayerName(playerId,e){e.stopPropagation();const currentName=state.playerNames[playerId],newName=prompt('Enter name for Player #'+playerId+':',currentName);if(newName!==null&&newName.trim()!==''){state.playerNames[playerId]=newName.trim();saveState();render();}}
   function assignPlayerToCourt(playerId){for(let i=0;i<state.courts.length;i++){const court=state.courts[i];if(!court.onCourt){const emptySlotIndex=court.slots.indexOf(null);if(emptySlotIndex!==-1){court.slots[emptySlotIndex]=playerId;state.benchIds=state.benchIds.filter(function(id){return id!==playerId;});saveState();render();return;}}}alert('No available court slots!');}
   function releasePlayerFromCourt(courtId,slotIndex){const court=state.courts.find(function(c){return c.id===courtId;});if(!court||court.onCourt)return;const playerId=court.slots[slotIndex];if(playerId!==null){court.slots[slotIndex]=null;state.benchIds.push(playerId);state.benchIds.sort(function(a,b){return a-b;});saveState();render();}}
-  function toggleOnCourt(courtId){const court=state.courts.find(function(c){return c.id===courtId;});if(court){court.onCourt=!court.onCourt;saveState();render();}}
+  function toggleOnCourt(courtId){const court=state.courts.find(function(c){return c.id===courtId;});if(!court)return;if(!court.onCourt){court.onCourt=true;const startedAt=new Date().toISOString();court.activeMatch={courtId:court.id,startedAt:startedAt,playerIds:court.slots.filter(function(id){return id!==null;}).slice()};}else{court.onCourt=false;}saveState();render();}
   function releaseAllFromCourt(courtId){
     const courtIndex=state.courts.findIndex(function(c){return c.id===courtId;});if(courtIndex===-1)return;
-    const court=state.courts[courtIndex];court.slots.forEach(function(playerId,index){if(playerId!==null){state.benchIds.push(playerId);court.slots[index]=null;}});
+    const court=state.courts[courtIndex];
+    if(court.activeMatch){state.matchHistory.push({courtId:court.activeMatch.courtId,startedAt:court.activeMatch.startedAt,endedAt:new Date().toISOString(),playerIds:court.activeMatch.playerIds.slice()});court.activeMatch=null;}
+    court.slots.forEach(function(playerId,index){if(playerId!==null){state.benchIds.push(playerId);court.slots[index]=null;}});
     court.onCourt=false;state.benchIds.sort(function(a,b){return a-b;});
     // Rotate the released court to the queue; labels are recalculated by position.
     state.courts.splice(courtIndex,1);state.courts.push(court);setCourtNames(state.courts);saveState();render();
@@ -171,7 +184,7 @@
       court.slots.forEach(function(playerId,idx){
         const slotEl=document.createElement('div');slotEl.className='slot'+(playerId!==null?' occupied':'');slotEl.dataset.courtId=court.id;slotEl.dataset.slotIndex=idx;
         if(!court.onCourt){slotEl.addEventListener('dragover',function(e){if(dragPayload){e.preventDefault();slotEl.classList.add('drag-over');}});slotEl.addEventListener('dragleave',function(){slotEl.classList.remove('drag-over');});slotEl.addEventListener('drop',function(e){e.preventDefault();slotEl.classList.remove('drag-over');handleDropOnSlot(court.id,idx);});}
-        if(playerId!==null){const playerCard=document.createElement('div');playerCard.className='player-card';const nameSpan=document.createElement('span');nameSpan.className='player-name-text';nameSpan.textContent=state.playerNames[playerId];playerCard.appendChild(nameSpan);if(!court.onCourt)setupPlayerInteractions(playerCard,{playerId:playerId,fromType:'court',courtId:court.id,slotIndex:idx},function(){releasePlayerFromCourt(court.id,idx);});slotEl.appendChild(playerCard);}else slotEl.textContent='Empty';
+        if(playerId!==null){const playerCard=document.createElement('div');playerCard.className='player-card';const nameSpan=document.createElement('span');nameSpan.className='player-name-text';nameSpan.textContent=state.playerNames[playerId];playerCard.appendChild(nameSpan);if(!court.onCourt)setupPlayerInteractions(playerCard,{playerId:playerId,fromType:'court',courtId:court.id,slotIndex:idx},function(){releasePlayerFromCourt(court.id,idx);});slotEl.appendChild(playerCard);}else{slotEl.textContent='Empty';}
         slotsGrid.appendChild(slotEl);
       });
       courtEl.appendChild(slotsGrid);const controls=document.createElement('div');controls.className='court-controls';
@@ -181,6 +194,18 @@
     playersList.innerHTML='';
     const sortedBenchIds=state.benchIds.slice().sort(function(a,b){const nameA=String(state.playerNames[a]||''),nameB=String(state.playerNames[b]||'');return nameA.localeCompare(nameB,undefined,{sensitivity:'base'})||a-b;});
     sortedBenchIds.forEach(function(playerId,index){const playerCard=document.createElement('div');playerCard.className='player-card player-alt-'+(index%2===0?'a':'b');const nameSpan=document.createElement('span');nameSpan.className='player-name-text';nameSpan.textContent=state.playerNames[playerId];const editBtn=document.createElement('button');editBtn.className='edit-btn';editBtn.textContent='✎';editBtn.title='Rename player';editBtn.onclick=function(e){editPlayerName(playerId,e);};playerCard.appendChild(nameSpan);playerCard.appendChild(editBtn);setupPlayerInteractions(playerCard,{playerId:playerId,fromType:'bench'},function(){assignPlayerToCourt(playerId);});playersList.appendChild(playerCard);});
+    renderMatchHistory();
+  }
+  function renderMatchHistory(){
+    const list=document.getElementById('match-history-list');list.innerHTML='';
+    const matches=state.matchHistory.slice().sort(function(a,b){return new Date(a.startedAt)-new Date(b.startedAt);});
+    matches.forEach(function(match){
+      const item=document.createElement('li');
+      const players=(match.playerIds||[]).map(function(id){return state.playerNames[id]||('Player #'+id);});
+      const start=new Date(match.startedAt),end=new Date(match.endedAt);
+      item.appendChild(document.createTextNode('Court '+match.courtId+' — '+(players.length?players.join(', '):'No players recorded')+' '));
+      const times=document.createElement('span');times.className='match-times';times.textContent='Start: '+start.toLocaleString()+' | End: '+end.toLocaleString();item.appendChild(times);list.appendChild(item);
+    });
   }
   render();
 </script>
