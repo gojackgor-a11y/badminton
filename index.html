@@ -201,9 +201,14 @@
         if(playerId!==null){const playerCard=document.createElement('div');playerCard.className='player-card';const nameSpan=document.createElement('span');nameSpan.className='player-name-text';nameSpan.textContent=state.playerNames[playerId];playerCard.appendChild(nameSpan);if(!court.onCourt)setupPlayerInteractions(playerCard,{playerId:playerId,fromType:'court',courtId:court.id,slotIndex:idx},function(){releasePlayerFromCourt(court.id,idx);});slotEl.appendChild(playerCard);}else{slotEl.textContent='Empty';}
         slotsGrid.appendChild(slotEl);
       });
-      courtEl.appendChild(slotsGrid);const controls=document.createElement('div');controls.className='court-controls';
-      const btnOnCourt=document.createElement('button');btnOnCourt.className='btn-oncourt'+(court.onCourt?' active':'');btnOnCourt.textContent=court.onCourt?'In Progress':'On Court';btnOnCourt.onclick=function(){toggleOnCourt(court.id);};
-      const btnRelease=document.createElement('button');btnRelease.className='btn-release';btnRelease.textContent='Release All';btnRelease.onclick=function(){releaseAllFromCourt(court.id);};controls.appendChild(btnOnCourt);controls.appendChild(btnRelease);courtEl.appendChild(controls);courtsContainer.appendChild(courtEl);
+      courtEl.appendChild(slotsGrid);
+      if(courtIndex<4){
+        const controls=document.createElement('div');controls.className='court-controls';
+        const btnOnCourt=document.createElement('button');btnOnCourt.className='btn-oncourt'+(court.onCourt?' active':'');btnOnCourt.textContent=court.onCourt?'In Progress':'On Court';btnOnCourt.onclick=function(){toggleOnCourt(court.id);};
+        const btnDone=document.createElement('button');btnDone.className='btn-release';btnDone.textContent='Done';btnDone.onclick=function(){releaseAllFromCourt(court.id);};
+        controls.appendChild(btnOnCourt);controls.appendChild(btnDone);courtEl.appendChild(controls);
+      }
+      courtsContainer.appendChild(courtEl);
     });
     playersList.innerHTML='';
     const sortedBenchIds=state.benchIds.slice().sort(function(a,b){const nameA=String(state.playerNames[a]||''),nameB=String(state.playerNames[b]||'');return nameA.localeCompare(nameB,undefined,{sensitivity:'base'})||a-b;});
